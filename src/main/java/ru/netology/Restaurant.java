@@ -36,6 +36,7 @@ class Restaurant {
                 while (!dishes.isEmpty()) {
                     conditionCook.await();
                 }
+                System.out.println("Cook makes dish");
                 TimeUnit.SECONDS.sleep(COOK_MAKES_DISH);
                 dishes.add(new Dish());
                 conditionWaiter.signalAll();
@@ -78,7 +79,7 @@ class Restaurant {
         try {
             System.out.println(Thread.currentThread().getName() + " at the restaurant");
             TimeUnit.SECONDS.sleep(VISITOR_MAKES_AN_ORDER);
-            conditionWaiter.signal();
+            conditionWaiter.signalAll();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
