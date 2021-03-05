@@ -1,4 +1,4 @@
 package ru.netology;
 
-public class Cook {
+public class Dish {
 }
