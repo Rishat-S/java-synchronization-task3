@@ -18,6 +18,7 @@ class Restaurant {
     private final Lock locker;
     private final Condition conditionWaiter;
     private final Condition conditionCook;
+//    private final Condition conditionVisitor;
 
     Restaurant() {
         orders = new ArrayList<>();
@@ -26,6 +27,7 @@ class Restaurant {
         locker = new ReentrantLock();
         conditionWaiter = locker.newCondition();
         conditionCook = locker.newCondition();
+//        conditionVisitor = locker.newCondition();
     }
 
     public void cookAtWork() {
@@ -34,6 +36,7 @@ class Restaurant {
             System.out.println("Cook at work");
             for (int i = 0; i < EXPECT_VISITORS; i++) {
                 while (orders.isEmpty()) {
+                    System.out.println("No orders");
                     conditionCook.await();
                 }
                 System.out.println("Cook makes dish");
@@ -55,9 +58,11 @@ class Restaurant {
         System.out.println(Thread.currentThread().getName() + " at work");
         try {
             while (visitors.isEmpty()) {
+                System.out.println("No visitors");
                 conditionWaiter.await();
             }
             while (dishes.isEmpty()) {
+                System.out.println("No dishes");
                 orders.add(new Order());
                 conditionCook.signal();
                 conditionWaiter.await();
@@ -80,6 +85,7 @@ class Restaurant {
         visitors.add(new Visitor());
         try {
             System.out.println(Thread.currentThread().getName() + " at the restaurant");
+            System.out.println("Visitor makes an order");
             TimeUnit.SECONDS.sleep(VISITOR_MAKES_AN_ORDER);
             conditionWaiter.signalAll();
         } catch (InterruptedException e) {
