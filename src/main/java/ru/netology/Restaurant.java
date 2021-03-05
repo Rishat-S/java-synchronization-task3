@@ -8,59 +8,63 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 class Restaurant {
-    private static final long COOK_MAKES_DISH = 5;
-    private static final long VISITOR_MAKES_AN_ORDER = 5;
-    private int visitors = 0;
-    private static int waiters = 0;
+    private static final long COOK_MAKES_DISH = 2;
+    private static final long VISITOR_MAKES_AN_ORDER = 2;
+    private static final long WAITER_DELIVER_THE_ORDER = 2;
+    public static final int EXPECT_VISITORS = 5;
     List<Dish> dishes;
+    List<Visitor> visitors;
     Lock locker;
-    Condition condition;
+    Condition conditionWaiter;
+    Condition conditionCook;
+    Condition conditionVisitor;
 
     Restaurant() {
         dishes = new ArrayList<>();
+        visitors = new ArrayList<>();
         locker = new ReentrantLock();
-        condition = locker.newCondition();
+        conditionWaiter = locker.newCondition();
+        conditionCook = locker.newCondition();
+        conditionVisitor = locker.newCondition();
     }
 
     public void cookAtWork() {
         locker.lock();
         try {
             System.out.println("Cook at work");
-            while (true) {
-                while (dishes.size() != 0) {
-                    condition.await();
+            for (int i = 0; i < EXPECT_VISITORS; i++) {
+                while (!dishes.isEmpty()) {
+                    conditionCook.await();
                 }
                 TimeUnit.SECONDS.sleep(COOK_MAKES_DISH);
                 dishes.add(new Dish());
-//                condition.signalAll();
-                if (waiters == 0) {
-                    System.out.println("Cook go home");
-                    break;
-                }
+                conditionWaiter.signalAll();
             }
+            System.out.println("Cook go home");
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             locker.unlock();
         }
-
     }
 
     public void waiterGetOrder() {
         locker.lock();
-        waiters++;
-        System.out.println("Waiter at work");
+        System.out.println(Thread.currentThread().getName() + " at work");
         try {
-            // no visitors waiting yet
-            while (visitors < 1) {
-                condition.await();
+            while (visitors.isEmpty()) {
+                conditionWaiter.await();
+            }
+            while (dishes.isEmpty()) {
+                conditionCook.signal();
+                conditionWaiter.await();
             }
 
-            visitors--;
-            System.out.println("Waiter took the order");
-            dishes.remove(dishes.size() -1);
-            waiters--;
-            condition.signalAll();
+            visitors.remove(visitors.size() - 1);
+            System.out.println(Thread.currentThread().getName() + " took the order");
+            dishes.remove(dishes.size() - 1);
+            TimeUnit.SECONDS.sleep(WAITER_DELIVER_THE_ORDER);
+            conditionWaiter.signal();
         } catch (InterruptedException e) {
             System.out.println(e.getMessage());
         } finally {
@@ -70,14 +74,11 @@ class Restaurant {
 
     public void visitorEntrance() {
         locker.lock();
+        visitors.add(new Visitor());
         try {
-            while (dishes.size() == 0) {
-                condition.await();
-            }
-            visitors++;
-            System.out.println("Visitor at the restaurant");
+            System.out.println(Thread.currentThread().getName() + " at the restaurant");
             TimeUnit.SECONDS.sleep(VISITOR_MAKES_AN_ORDER);
-            condition.signalAll();
+            conditionWaiter.signal();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
