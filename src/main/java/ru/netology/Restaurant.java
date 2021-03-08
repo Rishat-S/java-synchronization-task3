@@ -11,14 +11,14 @@ class Restaurant {
     private static final long COOK_MAKES_DISH = 2;
     private static final long VISITOR_MAKES_AN_ORDER = 2;
     private static final long WAITER_DELIVER_THE_ORDER = 2;
-    private static final int EXPECT_VISITORS = 5;
+    public static final int EXPECT_VISITORS = 5;
     private final List<Dish> dishes;
     private final List<Visitor> visitors;
     private final List<Order> orders;
     private final Lock locker;
     private final Condition conditionWaiter;
     private final Condition conditionCook;
-//    private final Condition conditionVisitor;
+    private int timeToWork = 2;
 
     Restaurant() {
         orders = new ArrayList<>();
@@ -27,7 +27,6 @@ class Restaurant {
         locker = new ReentrantLock();
         conditionWaiter = locker.newCondition();
         conditionCook = locker.newCondition();
-//        conditionVisitor = locker.newCondition();
     }
 
     public void cookAtWork() {
@@ -46,6 +45,7 @@ class Restaurant {
                 conditionWaiter.signalAll();
             }
             System.out.println("Cook go home");
+            timeToWork = 0;
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -55,15 +55,15 @@ class Restaurant {
 
     public void waiterGetOrder() {
         locker.lock();
-        System.out.println(Thread.currentThread().getName() + " at work");
+        System.out.println(Thread.currentThread().getName() + " waiter can accept the order");
         try {
             while (visitors.isEmpty()) {
                 System.out.println("No visitors");
                 conditionWaiter.await();
             }
             while (dishes.isEmpty()) {
-                System.out.println("No dishes");
                 orders.add(new Order());
+                System.out.println(Thread.currentThread().getName() + " order transferred to kitchen");
                 conditionCook.signal();
                 conditionWaiter.await();
             }
@@ -93,5 +93,9 @@ class Restaurant {
         } finally {
             locker.unlock();
         }
+    }
+
+    public boolean isOpen() {
+        return timeToWork != 0;
     }
 }
