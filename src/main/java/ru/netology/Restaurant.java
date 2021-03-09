@@ -12,13 +12,15 @@ class Restaurant {
     private static final long VISITOR_MAKES_AN_ORDER = 2;
     private static final long WAITER_DELIVER_THE_ORDER = 2;
     public static final int EXPECT_VISITORS = 5;
+    private static final long START = System.nanoTime();
+    private static final long WORK_TIME = 30_000_000_000L;
     private final List<Dish> dishes;
     private final List<Visitor> visitors;
     private final List<Order> orders;
     private final Lock locker;
     private final Condition conditionWaiter;
     private final Condition conditionCook;
-    private int timeToWork = 2;
+    private boolean isOpen = true;
 
     Restaurant() {
         orders = new ArrayList<>();
@@ -33,7 +35,7 @@ class Restaurant {
         locker.lock();
         try {
             System.out.println("Cook at work");
-            for (int i = 0; i < EXPECT_VISITORS; i++) {
+            while (isOpen() || !visitors.isEmpty()) {
                 while (orders.isEmpty()) {
                     System.out.println("No orders");
                     conditionCook.await();
@@ -42,10 +44,14 @@ class Restaurant {
                 TimeUnit.SECONDS.sleep(COOK_MAKES_DISH);
                 dishes.add(new Dish());
                 orders.remove(orders.size() - 1);
-                conditionWaiter.signalAll();
+                conditionWaiter.signal();
+                if ((System.nanoTime() - START) > WORK_TIME) {
+                    isOpen = false;
+                    System.out.println("Cook go home");
+                    return;
+                }
             }
-            System.out.println("Cook go home");
-            timeToWork = 0;
+
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -55,8 +61,8 @@ class Restaurant {
 
     public void waiterGetOrder() {
         locker.lock();
-        System.out.println(Thread.currentThread().getName() + " waiter can accept the order");
         try {
+            System.out.println(Thread.currentThread().getName() + " waiter can accept the order");
             while (visitors.isEmpty()) {
                 System.out.println("No visitors");
                 conditionWaiter.await();
@@ -70,7 +76,9 @@ class Restaurant {
 
             System.out.println(Thread.currentThread().getName() + " took the order");
             dishes.remove(dishes.size() - 1);
-            visitors.remove(visitors.size() - 1);
+            if (!visitors.isEmpty()) {
+                visitors.remove(visitors.size() - 1);
+            }
             TimeUnit.SECONDS.sleep(WAITER_DELIVER_THE_ORDER);
             conditionWaiter.signal();
         } catch (InterruptedException e) {
@@ -83,11 +91,11 @@ class Restaurant {
     public void visitorEntrance() {
         locker.lock();
         visitors.add(new Visitor());
+        System.out.println(Thread.currentThread().getName() + " at the restaurant");
+        System.out.println("Visitor makes an order");
         try {
-            System.out.println(Thread.currentThread().getName() + " at the restaurant");
-            System.out.println("Visitor makes an order");
             TimeUnit.SECONDS.sleep(VISITOR_MAKES_AN_ORDER);
-            conditionWaiter.signalAll();
+            conditionWaiter.signal();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -96,6 +104,6 @@ class Restaurant {
     }
 
     public boolean isOpen() {
-        return timeToWork != 0;
+        return isOpen;
     }
 }
